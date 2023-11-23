@@ -5,6 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "sysinfo.h"
 
 struct cpu cpus[NCPU];
 
@@ -696,4 +697,37 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+
+uint64
+nAvailProc() {
+  struct proc *p;
+  uint64 n;
+
+  n = 0;
+  for (p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if (p->state != UNUSED) {
+      n++;
+    }
+    release(&p->lock);
+  }
+
+  return n;
+}
+
+// sysinfo collects free memory in byte and the number of free processes
+uint64
+sysinfo(uint64 uinfo) {
+  struct proc *p = myproc();
+  struct sysinfo info;
+  
+  info.freemem = nFreeMem();
+  info.nproc = nAvailProc();
+
+  if (copyout(p->pagetable, uinfo, (char *)&info, sizeof(info)) < 0) {
+    return -1;
+  }
+
+  return 0;
 }
